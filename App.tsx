@@ -25,16 +25,30 @@ interface IdeaListProps {
 // --- HELPER FUNCTIONS ---
 const extractSlugFromUrl = (str: string): string => {
   if (!str) return '';
-  try {
-    let clean = str.trim();
-    if (clean.includes('http')) {
+  let clean = str.trim();
+  
+  // Jika ini adalah URL
+  if (clean.includes('http')) {
+    try {
+      const urlObj = new URL(clean);
+      const paths = urlObj.pathname.split('/').filter(Boolean);
+      clean = paths.pop() || clean;
+    } catch {
       const parts = clean.split('/');
       clean = parts.pop() || parts.pop() || '';
     }
-    return clean.replace(/[-_]/g, ' ').replace(/\.[^/.]+$/, "").trim();
-  } catch (e) {
-    return str;
+    clean = clean.split('?')[0];
+    clean = clean.replace(/\.[a-zA-Z0-9]+$/, ""); // Buang ekstensi (jika ada)
+    return decodeURIComponent(clean).replace(/[-_]/g, ' ').trim();
   }
+  
+  // Jika ini murni nama file tanpa spasi (misal: gambar_gunung.jpg)
+  if (/^[^ ]+\.[a-zA-Z0-9]{2,4}$/.test(clean)) {
+    return clean.replace(/\.[a-zA-Z0-9]{2,4}$/, "").replace(/[-_]/g, ' ').trim();
+  }
+  
+  // Jika ini kalimat panjang / teks CSV biasa, JANGAN dipotong!
+  return clean;
 };
 
 const IDEA_FORBIDDEN_WORDS = "porn, sex, nude, naked, xxx, erotic, boobs, tits, pussy, fuck, dick, cock, penis, vagina, ass, orgasm, masturbate, bitch, whore, slut, milf, fetish, bdsm, rape, incest, anal, blowjob, cum, ejaculate, hentai, stripper, escort, hot girl, 18+, adult, bathroom, toilet, change clothes, undress, bhabhi, auntie, desi, upskirt, birth, pregnant, bloody, injury, gore";
@@ -506,13 +520,14 @@ export default function App() {
                       </button>
                     </div>
                     
-                    <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-[10px] font-mono text-gray-500 flex flex-col h-[110px] overflow-hidden">
+                    {/* Data Preview Terkunci Tingginya */}
+                    <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-[10px] font-mono text-gray-500 flex flex-col h-[120px] min-h-[120px] max-h-[120px] shrink-0 overflow-hidden">
                       <div className="flex items-center gap-1 mb-1 font-bold text-gray-400 uppercase bg-gray-50 pb-1 border-b border-gray-100 shrink-0">
                           <Eye size={10} /> Data Preview
                       </div>
                       <div className="flex-1 overflow-hidden h-full flex flex-col">
                       {lineCount > 0 ? (
-                          <div className="flex flex-col">
+                          <div className="flex flex-col h-full">
                               {previewLines.map((line, idx) => (
                                   <div key={idx} className="truncate border-b border-gray-100 last:border-0 py-1 opacity-80 flex gap-2">
                                       <span className="shrink-0 w-8 text-blue-400 font-bold">{previewStart + idx + 1}.</span>
@@ -520,7 +535,7 @@ export default function App() {
                                   </div>
                               ))}
                               {lineCount > 3 && (
-                                  <div className="italic opacity-50 pt-1 pl-10">... and {lineCount - 3} more rows</div>
+                                  <div className="italic opacity-50 pt-1 pl-10 shrink-0">... and {lineCount - 3} more rows</div>
                               )}
                           </div>
                       ) : (
@@ -672,7 +687,7 @@ export default function App() {
             </div>
           </aside>
 
-          <section className="flex-1 p-4 bg-gray-100 flex flex-col relative order-2 min-h-[50vh] md:min-h-0 md:overflow-hidden">
+          <section className="flex-1 p-4 bg-gray-100 flex flex-col relative order-2 min-h-[100vh] md:min-h-0 md:overflow-hidden">
              {generatedItems.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-gray-400">
                    <p className="text-base font-medium uppercase">Idea Workspace Ready.</p>
