@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, memo } from 'react';
 import { 
   UploadCloud, Trash2, Eye, Loader2, CheckSquare, Square, 
-  FileText, Wand2, Copy, CheckCircle, AlertTriangle, 
-  Menu, Check, X, ExternalLink, Sparkles
+  FileText, Copy, CheckCircle, AlertTriangle, 
+  Menu, Check, X, ExternalLink
 } from 'lucide-react';
 
 // --- INTERFACES & TYPES ---
@@ -39,8 +39,8 @@ const extractSlugFromUrl = (str: string): string => {
 const IDEA_FORBIDDEN_WORDS = "porn, sex, nude, naked, xxx, erotic, boobs, tits, pussy, fuck, dick, cock, penis, vagina, ass, orgasm, masturbate, bitch, whore, slut, milf, fetish, bdsm, rape, incest, anal, blowjob, cum, ejaculate, hentai, stripper, escort, hot girl, 18+, adult, bathroom, toilet, change clothes, undress, bhabhi, auntie, desi, upskirt, birth, pregnant, bloody, injury, gore";
 
 // --- STYLES & CLASSES ---
-const inputClass = "w-full text-base p-2 border border-gray-300 rounded bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none focus:border-blue-500 transition-all disabled:bg-gray-100 disabled:text-gray-400 placeholder:text-gray-400 h-[42px]";
-const areaClass = "w-full text-base p-2 border border-gray-300 rounded bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none focus:border-blue-500 transition-all disabled:bg-gray-100 disabled:text-gray-400 placeholder:text-gray-300 h-14";
+const inputClass = "w-full text-sm px-2 py-1.5 border border-gray-300 rounded bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none focus:border-blue-500 transition-all disabled:bg-gray-100 disabled:text-gray-400 placeholder:text-gray-400 h-9";
+const areaClass = "w-full text-sm p-2 border border-gray-300 rounded bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none focus:border-blue-500 transition-all disabled:bg-gray-100 disabled:text-gray-400 placeholder:text-gray-300 h-14";
 const labelClass = "block text-sm font-medium text-gray-500 h-5 flex items-center whitespace-nowrap overflow-hidden";
 
 // ==========================================
@@ -100,7 +100,6 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }: IdeaListPr
     setActiveMenuId(activeMenuId === id ? null : id);
   };
 
-  // LOGIKA BUKA LINK DIPERBARUI
   const handleOpenLink = (url: string | undefined) => {
     if (!url) return;
     let finalUrl = url.trim();
@@ -223,11 +222,30 @@ IdeaListComponent.displayName = 'IdeaListComponent';
 // ==========================================
 export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Real-time Clock State
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Action States
   const [isLoadingFile, setIsLoadingFile] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [actionState, setActionState] = useState<'idle'|'generate'|'clear'|'export'>('idle');
+  const [dots, setDots] = useState('');
+
+  // Local Storage Logic
+  const [sourceLines, setSourceLines] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('IRS_DATA_SOURCELINES');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [generatedItems, setGeneratedItems] = useState<IdeaItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('IRS_DATA_GENERATED');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
 
   // Settings State
-  const [sourceLines, setSourceLines] = useState<string[]>([]);
   const [startRow, setStartRow] = useState<number>(1);
   const [quantity, setQuantity] = useState<number>(50);
   const [workerCount, setWorkerCount] = useState<number>(50);
@@ -235,15 +253,56 @@ export default function App() {
   const [outputFormat, setOutputFormat] = useState<'csv' | 'txt'>('csv');
   const [csvFilename, setCsvFilename] = useState<string>('');
 
-  // Data State
-  const [generatedItems, setGeneratedItems] = useState<IdeaItem[]>([]);
+  const defaultFilename = 'Data_Riset_IRS';
+
+  // Clock Effect
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Save to LocalStorage Effect
+  useEffect(() => {
+    localStorage.setItem('IRS_DATA_SOURCELINES', JSON.stringify(sourceLines));
+  }, [sourceLines]);
+
+  useEffect(() => {
+    localStorage.setItem('IRS_DATA_GENERATED', JSON.stringify(generatedItems));
+  }, [generatedItems]);
+
+  // Dots Animation Effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (actionState !== 'idle') {
+      interval = setInterval(() => {
+        setDots(prev => (prev.length >= 3 ? '' : prev + '.'));
+      }, 400);
+    } else {
+      setDots('');
+    }
+    return () => clearInterval(interval);
+  }, [actionState]);
+
+  // Formatting helpers
+  const formatTime = (date: Date) => {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0'); 
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  };
+
+  const formatDate = (date: Date) => {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
 
   // Variables for Preview
   const lineCount = sourceLines.length;
   const previewStart = Math.max(0, startRow - 1);
   const previewLines = lineCount > 0 ? sourceLines.slice(previewStart, previewStart + 3) : [];
-  const defaultFilename = 'IsaIdea_Mode2';
-
+  
   // --- HANDLERS ---
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -283,7 +342,7 @@ export default function App() {
         alert("Upload Database file first!");
         return;
     }
-    setIsProcessing(true);
+    setActionState('generate');
     
     setTimeout(() => {
         const actualStart = Math.max(0, startRow - 1);
@@ -303,12 +362,16 @@ export default function App() {
         });
 
         setGeneratedItems(newItems);
-        setIsProcessing(false);
-    }, 800);
+        setActionState('idle');
+    }, 1200);
   };
 
   const handleClearAll = () => {
+    setActionState('clear');
+    setTimeout(() => {
       setGeneratedItems([]);
+      setActionState('idle');
+    }, 600);
   };
 
   const handleDeleteItem = (id: string) => {
@@ -316,18 +379,24 @@ export default function App() {
   };
 
   const handleDownload = () => {
-      const filename = (csvFilename.trim() || defaultFilename) + `.${outputFormat}`;
-      const content = generatedItems.map(item => item.title).join('\n');
-      const blob = new Blob([content], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      setActionState('export');
+      setTimeout(() => {
+        const filename = (csvFilename.trim() || defaultFilename) + `.${outputFormat}`;
+        const content = generatedItems.map(item => item.title).join('\n');
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setActionState('idle');
+      }, 800);
   };
+
+  const isAnyActionRunning = actionState !== 'idle';
 
   // --- RENDER ---
   return (
@@ -343,14 +412,18 @@ export default function App() {
         <header className="w-full bg-white border-b border-gray-200 px-4 h-16 flex items-center justify-between shrink-0 shadow-sm z-50">
           <div className="flex items-center">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-400 bg-clip-text text-transparent tracking-tighter leading-none select-none">
-              Data Riset by IRS
+              Data Riset
             </h1>
+          </div>
+          <div className="flex flex-col items-end justify-center text-gray-800">
+             <span className="text-2xl leading-none tracking-tight tabular-nums">{formatTime(currentTime)}</span>
+             <span className="text-xs text-gray-500 font-medium uppercase tracking-wider mt-0.5 tabular-nums">{formatDate(currentTime)}</span>
           </div>
         </header>
 
-        <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        <main className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden relative">
           
-          <aside className="w-full md:w-[380px] md:ml-2 bg-gray-50 md:border-r border-gray-200 flex flex-col z-20 shrink-0 md:h-full overflow-hidden">
+          <aside className="w-full md:w-[380px] md:ml-2 bg-gray-50 md:border-r border-gray-200 flex flex-col z-20 shrink-0 md:h-full md:overflow-hidden order-1">
             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 p-4 flex flex-col gap-4">
               
               <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-200 flex flex-col gap-4">
@@ -381,8 +454,8 @@ export default function App() {
                     <div className="flex gap-3">
                       <button 
                         onClick={() => fileInputRef.current?.click()}
-                        disabled={isProcessing || isLoadingFile}
-                        className="flex-1 py-3 border-2 border-dashed rounded-lg text-xs font-bold uppercase tracking-wide transition-colors flex items-center justify-center gap-2 bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-wait"
+                        disabled={isAnyActionRunning || isLoadingFile}
+                        className="flex-1 py-2 border-2 border-dashed rounded-lg text-xs font-bold uppercase tracking-wide transition-colors flex items-center justify-center gap-2 bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-wait"
                       >
                         {isLoadingFile ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />} 
                         {isLoadingFile ? "Reading File..." : (lineCount > 0 ? "Replace File" : "Upload CSV/TXT")}
@@ -390,7 +463,7 @@ export default function App() {
 
                       <button
                         onClick={handleClearDatabase}
-                        disabled={isProcessing || lineCount === 0}
+                        disabled={isAnyActionRunning || lineCount === 0}
                         className="w-12 shrink-0 flex items-center justify-center border-2 border-dashed border-red-300 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Clear Database"
                       >
@@ -398,11 +471,12 @@ export default function App() {
                       </button>
                     </div>
                     
-                    <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-[10px] font-mono text-gray-500 flex flex-col h-[130px] overflow-hidden">
+                    {/* DATA PREVIEW DI KUNCI TINGGINYA */}
+                    <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-[10px] font-mono text-gray-500 flex flex-col h-[110px] overflow-hidden">
                       <div className="flex items-center gap-1 mb-1 font-bold text-gray-400 uppercase bg-gray-50 pb-1 border-b border-gray-100 shrink-0">
                           <Eye size={10} /> Data Preview
                       </div>
-                      <div className="flex-1 overflow-hidden">
+                      <div className="flex-1 overflow-hidden h-full flex flex-col">
                       {lineCount > 0 ? (
                           <div className="flex flex-col">
                               {previewLines.map((line, idx) => (
@@ -425,9 +499,10 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Ketinggian Input dikurangi */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center h-5 mb-1">
+                      <div className="flex items-center h-5 mb-0.5">
                           <label className={labelClass}>Start Row</label>
                       </div>
                       <input
@@ -435,12 +510,12 @@ export default function App() {
                         className={inputClass}
                         value={startRow === 0 ? '' : startRow}
                         onChange={(e) => handleNumberChange(setStartRow, e.target.value)}
-                        disabled={isProcessing}
+                        disabled={isAnyActionRunning}
                       />
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center h-5 mb-1">
+                      <div className="flex items-center h-5 mb-0.5">
                           <label className={labelClass}>Quantity</label>
                       </div>
                       <input
@@ -448,12 +523,12 @@ export default function App() {
                         className={inputClass}
                         value={quantity === 0 ? '' : quantity}
                         onChange={(e) => handleNumberChange(setQuantity, e.target.value)}
-                        disabled={isProcessing}
+                        disabled={isAnyActionRunning}
                       />
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center h-5 mb-1">
+                      <div className="flex items-center h-5 mb-0.5">
                           <label className={labelClass} title="Jumlah proses paralel lokal">Worker</label>
                       </div>
                       <input
@@ -461,7 +536,7 @@ export default function App() {
                         className={inputClass}
                         value={workerCount === 0 ? '' : workerCount}
                         onChange={(e) => handleNumberChange(setWorkerCount, e.target.value)}
-                        disabled={isProcessing}
+                        disabled={isAnyActionRunning}
                       />
                     </div>
                   </div>
@@ -469,11 +544,11 @@ export default function App() {
                   <div className="col-span-full">
                     <label className={labelClass}>Negative Context</label>
                     <textarea
-                      className={`${areaClass} resize-none text-xs font-mono scrollbar-thin scrollbar-thumb-gray-200 leading-tight h-20`}
+                      className={`${areaClass} resize-none text-xs font-mono scrollbar-thin scrollbar-thumb-gray-200 leading-tight h-16`}
                       placeholder="Daftar kata yang dilarang muncul..."
                       value={negativeContext}
                       onChange={(e) => setNegativeContext(e.target.value)}
-                      disabled={isProcessing}
+                      disabled={isAnyActionRunning}
                       spellCheck={false}
                     />
                   </div>
@@ -488,13 +563,13 @@ export default function App() {
                     
                     <div className="flex gap-3">
                       <button 
-                        onClick={() => setOutputFormat('csv')} disabled={isProcessing}
+                        onClick={() => setOutputFormat('csv')} disabled={isAnyActionRunning}
                         className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-blue-600 transition-colors"
                       >
                         {outputFormat === 'csv' ? <CheckSquare className="w-3.5 h-3.5 text-blue-500" /> : <Square className="w-3.5 h-3.5 text-gray-300" />} CSV
                       </button>
                       <button 
-                        onClick={() => setOutputFormat('txt')} disabled={isProcessing}
+                        onClick={() => setOutputFormat('txt')} disabled={isAnyActionRunning}
                         className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-blue-600 transition-colors"
                       >
                         {outputFormat === 'txt' ? <CheckSquare className="w-3.5 h-3.5 text-blue-500" /> : <Square className="w-3.5 h-3.5 text-gray-300" />} TXT
@@ -509,6 +584,7 @@ export default function App() {
                       placeholder={defaultFilename}
                       value={csvFilename}
                       onChange={(e) => setCsvFilename(e.target.value)}
+                      disabled={isAnyActionRunning}
                     />
                     <span className="absolute right-3 text-gray-400 font-medium select-none pointer-events-none">
                       .{outputFormat}
@@ -518,45 +594,53 @@ export default function App() {
               </div>
             </div>
 
-            {/* ACTION BUTTONS (GENERATE, CLEAR, EXPORT) */}
+            {/* ACTION BUTTONS: Generate - Clear - Export */}
             <div className="shrink-0 p-4 bg-gray-50 border-t border-gray-200 flex gap-2 z-10 h-[72px]">
+                {/* GENERATE BUTTON */}
+                <button 
+                    onClick={handleGenerate} 
+                    disabled={lineCount === 0 || isAnyActionRunning} 
+                    className={`flex-1 text-xs font-bold rounded-lg border shadow-sm transition-colors uppercase tracking-wide flex justify-center items-center ${
+                      actionState === 'generate' ? 'bg-blue-600 text-white border-blue-700' :
+                      lineCount > 0 && !isAnyActionRunning ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700' : 
+                      'bg-gray-100 border-gray-200 cursor-not-allowed text-gray-400 opacity-80'
+                    }`}
+                >
+                    {actionState === 'generate' ? `Memproses${dots}` : 'Generate'}
+                </button>
+
+                {/* CLEAR BUTTON */}
                 <button 
                     onClick={handleClearAll} 
-                    disabled={generatedItems.length === 0 || isProcessing} 
-                    className={`flex-1 text-xs font-bold rounded-lg border shadow-sm transition-colors uppercase tracking-wide ${generatedItems.length > 0 && !isProcessing ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed opacity-50'}`}
+                    disabled={generatedItems.length === 0 || isAnyActionRunning} 
+                    className={`flex-1 text-xs font-bold rounded-lg border shadow-sm transition-colors uppercase tracking-wide flex justify-center items-center ${
+                      actionState === 'clear' ? 'bg-red-50 text-red-600 border-red-200' :
+                      generatedItems.length > 0 && !isAnyActionRunning ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 
+                      'bg-gray-100 border-gray-200 cursor-not-allowed text-gray-400 opacity-80'
+                    }`}
                 >
-                    Clear All
+                    {actionState === 'clear' ? `Memproses${dots}` : 'Clear'}
                 </button>
-                
-                {isProcessing ? (
-                    <div className="flex-1 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 border border-blue-200 text-xs font-bold rounded-lg flex items-center justify-center shadow-sm select-none transition-all duration-300">
-                        <Sparkles className="w-4 h-4 animate-spin text-blue-600 mr-2" style={{ animationDuration: '3s' }} />
-                        <span className="uppercase tracking-wide">Proses...</span>
-                    </div>
-                ) : (
-                    <button 
-                        onClick={handleGenerate} 
-                        disabled={lineCount === 0 || isProcessing} 
-                        className={`flex-1 text-xs font-bold rounded-lg border shadow-sm transition-colors uppercase tracking-wide ${lineCount > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700' : 'bg-gray-100 border-gray-200 cursor-not-allowed text-gray-400'}`}
-                    >
-                        Generate
-                    </button>
-                )}
 
+                {/* EXPORT BUTTON */}
                 <button 
                     onClick={handleDownload} 
-                    disabled={generatedItems.length === 0 || isProcessing} 
-                    className={`flex-1 text-xs font-bold rounded-lg border shadow-sm transition-colors uppercase tracking-wide ${generatedItems.length > 0 && !isProcessing ? 'bg-green-600 hover:bg-green-700 text-white border-green-700' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-80'}`}
+                    disabled={generatedItems.length === 0 || isAnyActionRunning} 
+                    className={`flex-1 text-xs font-bold rounded-lg border shadow-sm transition-colors uppercase tracking-wide flex justify-center items-center ${
+                      actionState === 'export' ? 'bg-green-600 text-white border-green-700' :
+                      generatedItems.length > 0 && !isAnyActionRunning ? 'bg-green-600 hover:bg-green-700 text-white border-green-700' : 
+                      'bg-gray-100 border-gray-200 cursor-not-allowed text-gray-400 opacity-80'
+                    }`}
                 >
-                    Export
+                    {actionState === 'export' ? `Memproses${dots}` : 'Export'}
                 </button>
             </div>
           </aside>
 
-          <section className="flex-1 p-4 bg-gray-100 overflow-hidden flex flex-col min-h-0 relative">
+          {/* MAIN SECTION (OUTPUT LIST) */}
+          <section className="flex-1 p-4 bg-gray-100 flex flex-col relative order-2 min-h-[50vh] md:min-h-0 md:overflow-hidden">
              {generatedItems.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-gray-400">
-                   <Wand2 size={64} className="mb-4 text-blue-500 opacity-20" />
                    <p className="text-base font-medium uppercase">Idea Workspace Ready.</p>
                    <p className="mt-1 max-w-xs text-center text-sm text-gray-500">
                      {lineCount > 0 
