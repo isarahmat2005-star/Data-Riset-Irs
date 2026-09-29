@@ -2,17 +2,33 @@ import React, { useState, useRef, useEffect, memo } from 'react';
 import { 
   UploadCloud, Trash2, Eye, Loader2, CheckSquare, Square, 
   FileText, Wand2, Download, Copy, CheckCircle, AlertTriangle, 
-  Menu, Languages, Check, X, ExternalLink, Play, Pause, Sparkles
+  Menu, Check, X, ExternalLink, Sparkles
 } from 'lucide-react';
 
+// --- INTERFACES & TYPES ---
+interface IdeaItem {
+  id: string;
+  title: string;
+  sourceData: {
+    id: number;
+    originalKeywords: string;
+  };
+}
+
+interface IdeaListProps {
+  items: IdeaItem[];
+  negativeContext: string;
+  onDelete: (id: string) => void;
+}
+
 // --- HELPER FUNCTIONS ---
-const extractSlugFromUrl = (str) => {
+const extractSlugFromUrl = (str: string): string => {
   if (!str) return '';
   try {
     let clean = str.trim();
     if (clean.includes('http')) {
       const parts = clean.split('/');
-      clean = parts.pop() || parts.pop();
+      clean = parts.pop() || parts.pop() || '';
     }
     return clean.replace(/[-_]/g, ' ').replace(/\.[^/.]+$/, "").trim();
   } catch (e) {
@@ -30,14 +46,14 @@ const labelClass = "block text-sm font-medium text-gray-500 h-5 flex items-cente
 // ==========================================
 // LIST COMPONENT (BAGIAN KANAN)
 // ==========================================
-const IdeaListComponent = memo(({ items, negativeContext, onDelete }) => {
-  const [copiedId, setCopiedId] = useState(null);
-  const [activeMenuId, setActiveMenuId] = useState(null);
-  const menuRef = useRef(null);
+const IdeaListComponent = memo(({ items, negativeContext, onDelete }: IdeaListProps) => {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setActiveMenuId(null);
       }
     };
@@ -45,12 +61,12 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const getCleanTitle = (text) => {
+  const getCleanTitle = (text: string): string => {
     if (!text) return "";
     return text.includes('|||') ? text.split('|||')[0].trim() : text.trim();
   };
 
-  const getVulgarWord = (text) => {
+  const getVulgarWord = (text: string): string | null => {
     if (!text || !negativeContext) return null;
     const words = negativeContext.split(',').map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
     const lowerText = text.toLowerCase();
@@ -60,7 +76,7 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }) => {
     return null;
   };
 
-  const handleCopy = (text, id) => {
+  const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setActiveMenuId(null);
@@ -79,12 +95,12 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }) => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const toggleMenu = (e, id) => {
+  const toggleMenu = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setActiveMenuId(activeMenuId === id ? null : id);
   };
 
-  const handleOpenLink = (url) => {
+  const handleOpenLink = (url: string | undefined) => {
     if (url && url.startsWith('http')) {
       window.open(url, '_blank');
       setActiveMenuId(null);
@@ -93,7 +109,6 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }) => {
 
   return (
     <div className="flex flex-col gap-0 bg-white rounded-lg shadow-sm border border-blue-200 overflow-hidden h-full">
-      {/* Header */}
       <div className="flex items-center justify-between p-3 bg-blue-50 border-b border-blue-100 shrink-0">
          <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wide">
             Idea Output Results ({items.length})
@@ -109,7 +124,6 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }) => {
          </div>
       </div>
 
-      {/* List */}
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 bg-gray-50/30">
           <div className="flex flex-col divide-y divide-gray-100">
              {items.map((item) => {
@@ -121,12 +135,10 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }) => {
 
                 return (
                    <div key={item.id} className={`flex items-center gap-3 px-3 transition-colors group relative h-16 shrink-0 ${vulgarWord ? 'bg-red-50 hover:bg-red-100/60' : 'hover:bg-white'}`}>
-                      {/* Row Number */}
                       <div className={`shrink-0 w-8 h-8 flex items-center justify-center rounded text-xs font-bold ${vulgarWord ? 'bg-red-200 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
                          {rowId}
                       </div>
 
-                      {/* Content */}
                       <div className="flex-1 min-w-0">
                          {vulgarWord ? (
                             <div className="flex items-center gap-2 text-red-600 whitespace-nowrap overflow-hidden">
@@ -140,7 +152,6 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }) => {
                          )}
                       </div>
 
-                      {/* Action Menu Container */}
                       <div className="relative flex items-center justify-end shrink-0 w-9 h-9">
                         {isMenuOpen ? (
                             <div 
@@ -201,25 +212,27 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }) => {
   );
 });
 
+IdeaListComponent.displayName = 'IdeaListComponent';
+
 // ==========================================
 // MAIN APP COMPONENT
 // ==========================================
 export default function App() {
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoadingFile, setIsLoadingFile] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Settings State
-  const [sourceLines, setSourceLines] = useState([]);
-  const [startRow, setStartRow] = useState(1);
-  const [quantity, setQuantity] = useState(50);
-  const [workerCount, setWorkerCount] = useState(50);
-  const [negativeContext, setNegativeContext] = useState(IDEA_FORBIDDEN_WORDS);
-  const [outputFormat, setOutputFormat] = useState('csv');
-  const [csvFilename, setCsvFilename] = useState('');
+  const [sourceLines, setSourceLines] = useState<string[]>([]);
+  const [startRow, setStartRow] = useState<number>(1);
+  const [quantity, setQuantity] = useState<number>(50);
+  const [workerCount, setWorkerCount] = useState<number>(50);
+  const [negativeContext, setNegativeContext] = useState<string>(IDEA_FORBIDDEN_WORDS);
+  const [outputFormat, setOutputFormat] = useState<'csv' | 'txt'>('csv');
+  const [csvFilename, setCsvFilename] = useState<string>('');
 
   // Data State
-  const [generatedItems, setGeneratedItems] = useState([]);
+  const [generatedItems, setGeneratedItems] = useState<IdeaItem[]>([]);
 
   // Variables for Preview
   const lineCount = sourceLines.length;
@@ -228,7 +241,7 @@ export default function App() {
   const defaultFilename = 'IsaIdea_Mode2';
 
   // --- HANDLERS ---
-  const handleFileUpload = (e) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsLoadingFile(true);
@@ -236,7 +249,7 @@ export default function App() {
     setTimeout(() => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        const text = event.target?.result;
+        const text = event.target?.result as string;
         if (text) {
           const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
           setSourceLines(lines);
@@ -254,7 +267,7 @@ export default function App() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleNumberChange = (setter, value) => {
+  const handleNumberChange = (setter: React.Dispatch<React.SetStateAction<number>>, value: string) => {
     if (value === '') { setter(0); return; }
     let num = parseInt(value);
     if (isNaN(num) || num < 0) num = 0;
@@ -268,13 +281,12 @@ export default function App() {
     }
     setIsProcessing(true);
     
-    // Simulate generation delay
     setTimeout(() => {
         const actualStart = Math.max(0, startRow - 1);
         const actualEnd = Math.min(lineCount, actualStart + quantity);
         const sliced = sourceLines.slice(actualStart, actualEnd);
 
-        const newItems = sliced.map((line, idx) => {
+        const newItems: IdeaItem[] = sliced.map((line, idx) => {
             const cleanSlug = extractSlugFromUrl(line);
             return {
                 id: Math.random().toString(36).substring(7),
@@ -295,7 +307,7 @@ export default function App() {
       setGeneratedItems([]);
   };
 
-  const handleDeleteItem = (id) => {
+  const handleDeleteItem = (id: string) => {
       setGeneratedItems(prev => prev.filter(item => item.id !== id));
   };
 
@@ -323,7 +335,6 @@ export default function App() {
       
       <div className="flex flex-col h-screen w-full bg-gray-50 overflow-hidden relative font-share-tech">
         
-        {/* HEADER BAR */}
         <header className="w-full bg-white border-b border-gray-200 px-4 h-16 flex items-center justify-between shrink-0 shadow-sm z-50">
           <div className="flex items-center">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-400 bg-clip-text text-transparent tracking-tighter leading-none select-none">
@@ -335,16 +346,13 @@ export default function App() {
           </span>
         </header>
 
-        {/* MAIN LAYOUT */}
         <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
           
-          {/* SIDEBAR (SETTINGS) */}
           <aside className="w-full md:w-[380px] md:ml-2 bg-gray-50 md:border-r border-gray-200 flex flex-col z-20 shrink-0 md:h-full overflow-hidden">
             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 p-4 flex flex-col gap-4">
               
               <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-200 flex flex-col gap-4">
                 <div className="flex flex-col gap-4">
-                  {/* Database Source */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
@@ -388,7 +396,6 @@ export default function App() {
                       </button>
                     </div>
                     
-                    {/* Data Preview */}
                     <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-[10px] font-mono text-gray-500 flex flex-col h-[130px] overflow-hidden">
                       <div className="flex items-center gap-1 mb-1 font-bold text-gray-400 uppercase bg-gray-50 pb-1 border-b border-gray-100 shrink-0">
                           <Eye size={10} /> Data Preview
@@ -416,7 +423,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Start Row, Quantity, Worker Grid */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center h-5 mb-1">
@@ -458,7 +464,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Negative Context */}
                   <div className="col-span-full">
                     <label className={labelClass}>Negative Context</label>
                     <textarea
@@ -472,7 +477,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Custom Filename CSV / TXT */}
                 <div className="pt-2 border-t border-blue-100">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
@@ -512,7 +516,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* GENERATE AND EXPORT ACTION BAR */}
             <div className="shrink-0 p-4 bg-gray-50 border-t border-gray-200 flex flex-col gap-4 z-10">
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
                     <div className="p-3 bg-white flex items-center justify-between gap-3">
@@ -553,7 +556,6 @@ export default function App() {
             </div>
           </aside>
 
-          {/* MAIN SECTION (OUTPUT LIST) */}
           <section className="flex-1 p-4 bg-gray-100 overflow-hidden flex flex-col min-h-0 relative">
              {generatedItems.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-gray-400">
