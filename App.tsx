@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, memo } from 'react';
 import { 
   UploadCloud, Trash2, Eye, Loader2, CheckSquare, Square, 
-  FileText, Wand2, Download, Copy, CheckCircle, AlertTriangle, 
+  FileText, Wand2, Copy, CheckCircle, AlertTriangle, 
   Menu, Check, X, ExternalLink, Sparkles
 } from 'lucide-react';
 
@@ -100,11 +100,15 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }: IdeaListPr
     setActiveMenuId(activeMenuId === id ? null : id);
   };
 
+  // LOGIKA BUKA LINK DIPERBARUI
   const handleOpenLink = (url: string | undefined) => {
-    if (url && url.startsWith('http')) {
-      window.open(url, '_blank');
-      setActiveMenuId(null);
+    if (!url) return;
+    let finalUrl = url.trim();
+    if (!finalUrl.startsWith('http')) {
+      finalUrl = 'https://' + finalUrl;
     }
+    window.open(finalUrl, '_blank');
+    setActiveMenuId(null);
   };
 
   return (
@@ -160,7 +164,7 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }: IdeaListPr
                             >
                                 {!vulgarWord && (
                                     <>
-                                        {originalUrl && originalUrl.startsWith('http') && (
+                                        {originalUrl && (
                                             <button 
                                                 onClick={() => handleOpenLink(originalUrl)}
                                                 className="p-2 rounded-md transition-colors bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600"
@@ -335,15 +339,13 @@ export default function App() {
       
       <div className="flex flex-col h-screen w-full bg-gray-50 overflow-hidden relative font-share-tech">
         
+        {/* HEADER BAR */}
         <header className="w-full bg-white border-b border-gray-200 px-4 h-16 flex items-center justify-between shrink-0 shadow-sm z-50">
           <div className="flex items-center">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-400 bg-clip-text text-transparent tracking-tighter leading-none select-none">
               Data Riset by IRS
             </h1>
           </div>
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase border bg-blue-50 text-blue-600 border-blue-200">
-            IDEA MODE 2 (PAID)
-          </span>
         </header>
 
         <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
@@ -516,43 +518,38 @@ export default function App() {
               </div>
             </div>
 
-            <div className="shrink-0 p-4 bg-gray-50 border-t border-gray-200 flex flex-col gap-4 z-10">
-                <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="p-3 bg-white flex items-center justify-between gap-3">
-                        <button 
-                            onClick={handleClearAll} 
-                            disabled={generatedItems.length === 0 || isProcessing} 
-                            className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-sm font-bold uppercase tracking-wide rounded border transition-colors ${generatedItems.length > 0 && !isProcessing ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed opacity-50'}`}
-                        >
-                            <Trash2 size={14} /> CLEAR ALL
-                        </button>
+            {/* ACTION BUTTONS (GENERATE, CLEAR, EXPORT) */}
+            <div className="shrink-0 p-4 bg-gray-50 border-t border-gray-200 flex gap-2 z-10 h-[72px]">
+                <button 
+                    onClick={handleClearAll} 
+                    disabled={generatedItems.length === 0 || isProcessing} 
+                    className={`flex-1 text-xs font-bold rounded-lg border shadow-sm transition-colors uppercase tracking-wide ${generatedItems.length > 0 && !isProcessing ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed opacity-50'}`}
+                >
+                    Clear All
+                </button>
+                
+                {isProcessing ? (
+                    <div className="flex-1 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 border border-blue-200 text-xs font-bold rounded-lg flex items-center justify-center shadow-sm select-none transition-all duration-300">
+                        <Sparkles className="w-4 h-4 animate-spin text-blue-600 mr-2" style={{ animationDuration: '3s' }} />
+                        <span className="uppercase tracking-wide">Proses...</span>
                     </div>
-                </div>
-                <div className="flex gap-1.5 h-10">
-                    {isProcessing ? (
-                        <div className="flex-1 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 border border-blue-200 text-xs font-bold rounded-lg flex items-center justify-center gap-2 shadow-sm select-none transition-all duration-300">
-                            <Sparkles className="w-4 h-4 animate-spin text-blue-600" style={{ animationDuration: '3s' }} />
-                            <span className="uppercase tracking-wide">Memproses...</span>
-                        </div>
-                    ) : (
-                        <button 
-                            onClick={handleGenerate} 
-                            disabled={lineCount === 0 || isProcessing} 
-                            className={`flex-1 text-xs font-bold rounded-lg border shadow transition-colors flex items-center justify-center gap-2 uppercase tracking-wide truncate ${lineCount > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700' : 'bg-gray-100 border-gray-200 cursor-not-allowed text-gray-400'}`}
-                        >
-                            <Wand2 size={14} className="shrink-0" />
-                            <span className="truncate">Generate Ideas</span>
-                        </button>
-                    )}
+                ) : (
                     <button 
-                        onClick={handleDownload} 
-                        disabled={generatedItems.length === 0 || isProcessing} 
-                        className={`flex-1 text-xs font-bold rounded-lg border shadow transition-colors flex items-center justify-center gap-2 uppercase tracking-wide truncate ${generatedItems.length > 0 && !isProcessing ? 'bg-green-600 hover:bg-green-700 text-white border-green-700' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-80'}`}
+                        onClick={handleGenerate} 
+                        disabled={lineCount === 0 || isProcessing} 
+                        className={`flex-1 text-xs font-bold rounded-lg border shadow-sm transition-colors uppercase tracking-wide ${lineCount > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700' : 'bg-gray-100 border-gray-200 cursor-not-allowed text-gray-400'}`}
                     >
-                        <Download size={14} className="shrink-0" /> 
-                        <span className="truncate">Export {outputFormat.toUpperCase()}</span>
+                        Generate
                     </button>
-                </div>
+                )}
+
+                <button 
+                    onClick={handleDownload} 
+                    disabled={generatedItems.length === 0 || isProcessing} 
+                    className={`flex-1 text-xs font-bold rounded-lg border shadow-sm transition-colors uppercase tracking-wide ${generatedItems.length > 0 && !isProcessing ? 'bg-green-600 hover:bg-green-700 text-white border-green-700' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-80'}`}
+                >
+                    Export
+                </button>
             </div>
           </aside>
 
