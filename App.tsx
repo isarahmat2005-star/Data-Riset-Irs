@@ -30,14 +30,23 @@ const extractSlugFromUrl = (str: string): string => {
   try {
     if (clean.startsWith('http')) {
       const urlObj = new URL(clean);
-      // Ekstrak parameter pencarian (k = Adobe Stock, q = Shutterstock/Google)
+      
+      // 1. Ekstrak parameter pencarian (k = Adobe Stock, q = Shutterstock/Google)
       if (urlObj.searchParams.has('k')) {
         clean = urlObj.searchParams.get('k') || '';
       } else if (urlObj.searchParams.has('q')) {
         clean = urlObj.searchParams.get('q') || '';
       } else {
+        // 2. Ekstrak dari Path (Untuk URL langsung ke aset)
         const paths = urlObj.pathname.split('/').filter(Boolean);
-        clean = paths.pop() || clean;
+        let lastSegment = paths.pop() || '';
+        
+        // Jika bagian paling belakang adalah ID (hanya angka), ambil bagian judul sebelumnya!
+        if (/^\d+$/.test(lastSegment) && paths.length > 0) {
+           lastSegment = paths.pop() || lastSegment;
+        }
+        
+        clean = lastSegment;
       }
     }
     
@@ -589,7 +598,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Tinggi dan ukuran font diperkecil */}
                   <div className="col-span-full">
                     <label className={labelClass}>Negative Context</label>
                     <textarea
