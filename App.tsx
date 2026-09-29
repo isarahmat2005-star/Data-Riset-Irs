@@ -272,7 +272,7 @@ export default function App() {
 
   // Dots Animation Effect
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (actionState !== 'idle') {
       interval = setInterval(() => {
         setDots(prev => (prev.length >= 3 ? '' : prev + '.'));
