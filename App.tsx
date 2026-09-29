@@ -4,6 +4,7 @@ import {
   FileText, Copy, CheckCircle, AlertTriangle, 
   Menu, Check, X, ExternalLink
 } from 'lucide-react';
+import { read, utils, writeFile } from 'xlsx';
 
 // --- INTERFACES & TYPES ---
 interface IdeaItem {
@@ -250,7 +251,7 @@ export default function App() {
   const [quantity, setQuantity] = useState<number>(50);
   const [workerCount, setWorkerCount] = useState<number>(50);
   const [negativeContext, setNegativeContext] = useState<string>(IDEA_FORBIDDEN_WORDS);
-  const [outputFormat, setOutputFormat] = useState<'csv' | 'txt'>('csv');
+  const [outputFormat, setOutputFormat] = useState<'csv' | 'txt' | 'xlsx'>('csv');
   const [csvFilename, setCsvFilename] = useState<string>('');
 
   const defaultFilename = 'Data_Riset_IRS';
@@ -310,17 +311,39 @@ export default function App() {
     setIsLoadingFile(true);
 
     setTimeout(() => {
+      const extension = file.name.split('.').pop()?.toLowerCase();
       const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        if (text) {
-          const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
-          setSourceLines(lines);
-        }
-        setIsLoadingFile(false);
-      };
-      reader.onerror = () => setIsLoadingFile(false);
-      reader.readAsText(file);
+
+      if (extension === 'xlsx' || extension === 'xls') {
+        reader.onload = (event) => {
+          try {
+            const data = event.target?.result;
+            const workbook = read(data, { type: 'binary' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const jsonData = utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+            const lines = jsonData
+              .map(row => (row[0] ? String(row[0]).trim() : ''))
+              .filter(line => line.length > 0);
+            setSourceLines(lines);
+          } catch (err) {
+            console.error("Excel read error", err);
+            alert("Failed to read Excel file.");
+          }
+          setIsLoadingFile(false);
+        };
+        reader.readAsBinaryString(file);
+      } else {
+        reader.onload = (event) => {
+          const text = event.target?.result as string;
+          if (text) {
+            const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+            setSourceLines(lines);
+          }
+          setIsLoadingFile(false);
+        };
+        reader.readAsText(file);
+      }
     }, 500);
     e.target.value = '';
   };
@@ -382,16 +405,25 @@ export default function App() {
       setActionState('export');
       setTimeout(() => {
         const filename = (csvFilename.trim() || defaultFilename) + `.${outputFormat}`;
-        const content = generatedItems.map(item => item.title).join('\n');
-        const blob = new Blob([content], { type: "text/plain" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        
+        if (outputFormat === 'xlsx') {
+          const formattedData = generatedItems.map(item => ({ 'Idea Title': item.title }));
+          const worksheet = utils.json_to_sheet(formattedData);
+          const workbook = utils.book_new();
+          utils.book_append_sheet(workbook, worksheet, "Ideas");
+          writeFile(workbook, filename);
+        } else {
+          const content = generatedItems.map(item => item.title).join('\n');
+          const blob = new Blob([content], { type: "text/plain" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
         setActionState('idle');
       }, 800);
   };
@@ -408,7 +440,6 @@ export default function App() {
       
       <div className="flex flex-col h-screen w-full bg-gray-50 overflow-hidden relative font-share-tech">
         
-        {/* HEADER BAR */}
         <header className="w-full bg-white border-b border-gray-200 px-4 h-16 flex items-center justify-between shrink-0 shadow-sm z-50">
           <div className="flex items-center">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-400 bg-clip-text text-transparent tracking-tighter leading-none select-none">
@@ -427,6 +458,10 @@ export default function App() {
             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 p-4 flex flex-col gap-4">
               
               <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-200 flex flex-col gap-4">
+                <h2 className="text-base font-semibold text-gray-700 uppercase tracking-wide border-b border-blue-100 pb-2 mb-1">
+                   Idea Setting
+                </h2>
+                
                 <div className="flex flex-col gap-4">
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -447,7 +482,7 @@ export default function App() {
                     </div>
                     
                     <input 
-                      ref={fileInputRef} type="file" accept=".txt,.csv" 
+                      ref={fileInputRef} type="file" accept=".txt,.csv,.xlsx,.xls" 
                       onChange={handleFileUpload} className="hidden" 
                     />
                     
@@ -458,7 +493,7 @@ export default function App() {
                         className="flex-1 py-2 border-2 border-dashed rounded-lg text-xs font-bold uppercase tracking-wide transition-colors flex items-center justify-center gap-2 bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-wait"
                       >
                         {isLoadingFile ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />} 
-                        {isLoadingFile ? "Reading File..." : (lineCount > 0 ? "Replace File" : "Upload CSV/TXT")}
+                        {isLoadingFile ? "Reading File..." : (lineCount > 0 ? "Replace File" : "Upload File")}
                       </button>
 
                       <button
@@ -471,7 +506,6 @@ export default function App() {
                       </button>
                     </div>
                     
-                    {/* DATA PREVIEW DI KUNCI TINGGINYA */}
                     <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-[10px] font-mono text-gray-500 flex flex-col h-[110px] overflow-hidden">
                       <div className="flex items-center gap-1 mb-1 font-bold text-gray-400 uppercase bg-gray-50 pb-1 border-b border-gray-100 shrink-0">
                           <Eye size={10} /> Data Preview
@@ -499,7 +533,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Ketinggian Input dikurangi */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center h-5 mb-0.5">
@@ -561,18 +594,24 @@ export default function App() {
                       <label className="block text-sm font-medium text-gray-500">Custom Filename</label>
                     </div>
                     
-                    <div className="flex gap-3">
+                    <div className="flex gap-2">
                       <button 
                         onClick={() => setOutputFormat('csv')} disabled={isAnyActionRunning}
-                        className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-blue-600 transition-colors"
+                        className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-blue-600 transition-colors"
                       >
                         {outputFormat === 'csv' ? <CheckSquare className="w-3.5 h-3.5 text-blue-500" /> : <Square className="w-3.5 h-3.5 text-gray-300" />} CSV
                       </button>
                       <button 
                         onClick={() => setOutputFormat('txt')} disabled={isAnyActionRunning}
-                        className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-blue-600 transition-colors"
+                        className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-blue-600 transition-colors"
                       >
                         {outputFormat === 'txt' ? <CheckSquare className="w-3.5 h-3.5 text-blue-500" /> : <Square className="w-3.5 h-3.5 text-gray-300" />} TXT
+                      </button>
+                      <button 
+                        onClick={() => setOutputFormat('xlsx')} disabled={isAnyActionRunning}
+                        className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-blue-600 transition-colors"
+                      >
+                        {outputFormat === 'xlsx' ? <CheckSquare className="w-3.5 h-3.5 text-blue-500" /> : <Square className="w-3.5 h-3.5 text-gray-300" />} XLSX
                       </button>
                     </div>
                   </div>
@@ -594,9 +633,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* ACTION BUTTONS: Generate - Clear - Export */}
             <div className="shrink-0 p-4 bg-gray-50 border-t border-gray-200 flex gap-2 z-10 h-[72px]">
-                {/* GENERATE BUTTON */}
                 <button 
                     onClick={handleGenerate} 
                     disabled={lineCount === 0 || isAnyActionRunning} 
@@ -609,20 +646,18 @@ export default function App() {
                     {actionState === 'generate' ? `Memproses${dots}` : 'Generate'}
                 </button>
 
-                {/* CLEAR BUTTON */}
                 <button 
                     onClick={handleClearAll} 
                     disabled={generatedItems.length === 0 || isAnyActionRunning} 
                     className={`flex-1 text-xs font-bold rounded-lg border shadow-sm transition-colors uppercase tracking-wide flex justify-center items-center ${
-                      actionState === 'clear' ? 'bg-red-50 text-red-600 border-red-200' :
-                      generatedItems.length > 0 && !isAnyActionRunning ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 
+                      actionState === 'clear' ? 'bg-red-600 text-white border-red-700' :
+                      generatedItems.length > 0 && !isAnyActionRunning ? 'bg-red-600 hover:bg-red-700 text-white border-red-700' : 
                       'bg-gray-100 border-gray-200 cursor-not-allowed text-gray-400 opacity-80'
                     }`}
                 >
                     {actionState === 'clear' ? `Memproses${dots}` : 'Clear'}
                 </button>
 
-                {/* EXPORT BUTTON */}
                 <button 
                     onClick={handleDownload} 
                     disabled={generatedItems.length === 0 || isAnyActionRunning} 
@@ -637,7 +672,6 @@ export default function App() {
             </div>
           </aside>
 
-          {/* MAIN SECTION (OUTPUT LIST) */}
           <section className="flex-1 p-4 bg-gray-100 flex flex-col relative order-2 min-h-[50vh] md:min-h-0 md:overflow-hidden">
              {generatedItems.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-gray-400">
