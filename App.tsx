@@ -23,32 +23,10 @@ interface IdeaListProps {
 }
 
 // --- HELPER FUNCTIONS ---
+// Dinetralkan agar tidak merusak teks asli. Pemotongan visual dilakukan oleh getCleanTitle.
 const extractSlugFromUrl = (str: string): string => {
   if (!str) return '';
-  let clean = str.trim();
-  
-  // Jika ini adalah URL
-  if (clean.includes('http')) {
-    try {
-      const urlObj = new URL(clean);
-      const paths = urlObj.pathname.split('/').filter(Boolean);
-      clean = paths.pop() || clean;
-    } catch {
-      const parts = clean.split('/');
-      clean = parts.pop() || parts.pop() || '';
-    }
-    clean = clean.split('?')[0];
-    clean = clean.replace(/\.[a-zA-Z0-9]+$/, ""); // Buang ekstensi (jika ada)
-    return decodeURIComponent(clean).replace(/[-_]/g, ' ').trim();
-  }
-  
-  // Jika ini murni nama file tanpa spasi (misal: gambar_gunung.jpg)
-  if (/^[^ ]+\.[a-zA-Z0-9]{2,4}$/.test(clean)) {
-    return clean.replace(/\.[a-zA-Z0-9]{2,4}$/, "").replace(/[-_]/g, ' ').trim();
-  }
-  
-  // Jika ini kalimat panjang / teks CSV biasa, JANGAN dipotong!
-  return clean;
+  return str.trim(); 
 };
 
 const IDEA_FORBIDDEN_WORDS = "porn, sex, nude, naked, xxx, erotic, boobs, tits, pussy, fuck, dick, cock, penis, vagina, ass, orgasm, masturbate, bitch, whore, slut, milf, fetish, bdsm, rape, incest, anal, blowjob, cum, ejaculate, hentai, stripper, escort, hot girl, 18+, adult, bathroom, toilet, change clothes, undress, bhabhi, auntie, desi, upskirt, birth, pregnant, bloody, injury, gore";
@@ -76,6 +54,7 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }: IdeaListPr
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Menggunakan logika pemotongan ||| sesuai struktur asli
   const getCleanTitle = (text: string): string => {
     if (!text) return "";
     return text.includes('|||') ? text.split('|||')[0].trim() : text.trim();
@@ -126,7 +105,7 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }: IdeaListPr
   };
 
   return (
-    <div className="flex flex-col gap-0 bg-white rounded-lg shadow-sm border border-blue-200 overflow-hidden h-full">
+    <div className="flex flex-col gap-0 bg-white rounded-lg shadow-sm border border-blue-200 overflow-hidden h-[600px] w-full">
       <div className="flex items-center justify-between p-3 bg-blue-50 border-b border-blue-100 shrink-0">
          <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wide">
             Idea Output Results ({items.length})
@@ -178,7 +157,7 @@ const IdeaListComponent = memo(({ items, negativeContext, onDelete }: IdeaListPr
                             >
                                 {!vulgarWord && (
                                     <>
-                                        {originalUrl && (
+                                        {originalUrl && originalUrl.startsWith('http') && (
                                             <button 
                                                 onClick={() => handleOpenLink(originalUrl)}
                                                 className="p-2 rounded-md transition-colors bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600"
@@ -520,8 +499,8 @@ export default function App() {
                       </button>
                     </div>
                     
-                    {/* Data Preview Terkunci Tingginya */}
-                    <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-[10px] font-mono text-gray-500 flex flex-col h-[120px] min-h-[120px] max-h-[120px] shrink-0 overflow-hidden">
+                    {/* Tinggi Data Preview Dipaku h-[130px] */}
+                    <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-[10px] font-mono text-gray-500 flex flex-col h-[130px] shrink-0 overflow-hidden">
                       <div className="flex items-center gap-1 mb-1 font-bold text-gray-400 uppercase bg-gray-50 pb-1 border-b border-gray-100 shrink-0">
                           <Eye size={10} /> Data Preview
                       </div>
@@ -687,7 +666,8 @@ export default function App() {
             </div>
           </aside>
 
-          <section className="flex-1 p-4 bg-gray-100 flex flex-col relative order-2 min-h-[100vh] md:min-h-0 md:overflow-hidden">
+          {/* Menambahkan min-h-[600px] pada parent agar seimbang di HP */}
+          <section className="flex-1 p-4 bg-gray-100 flex flex-col relative order-2 min-h-[600px] md:min-h-0 md:h-full md:overflow-hidden">
              {generatedItems.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-gray-400">
                    <p className="text-base font-medium uppercase">Idea Workspace Ready.</p>
